@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  eng_0:
+    container_name: eng_0
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./OpenFace:/OpenFace
+      - ./mods:/mods
+      - ./models:/models
+      - ./OpenBLAS:/OpenBLAS
+    stdin_open: true
+    tty: true
+    # command: bash -c "cd /OpenFace/build && cmake -D CMAKE_CXX_COMPILER=g++-8 -D CMAKE_C_COMPILER=gcc-8 -D CMAKE_BUILD_TYPE=RELEASE .. && make"
+    command: ["tail", "-f", "/dev/null"]
+    networks:
+      eng_ros_network:
+        ipv4_address: 172.21.0.4
+
+networks:
+  eng_ros_network:
+    external: true

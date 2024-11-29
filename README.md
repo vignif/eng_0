@@ -1,3 +1,5 @@
+The image is built! Now i have to create a node that loads the model and returns the prediction according to the features available in the topic
+
 # Engagement-Level-Prediction
 Real-time engagement-intensity prediction.
 

@@ -1,7 +1,9 @@
 # Dockerfile created from instructions in 
 # https://github.com/TadasBaltrusaitis/OpenFace/wiki/Unix-Installation
+FROM ros:noetic
+# FROM osrf/ros:noetic-desktop-full
 
-FROM ubuntu:focal
+LABEL maintainer="Francesco Vigni <vignif@gmail.com>"
 
 # Install essential build tools and dependencies
 RUN apt-get update && \
@@ -18,6 +20,9 @@ RUN apt-get update && \
     libswscale-dev \
     python-dev \
     python-numpy \
+    python3-opencv \
+    python3-rosdep \
+    python3-catkin-tools \
     libtbb2 \
     libtbb-dev \
     libjpeg-dev \
@@ -25,8 +30,12 @@ RUN apt-get update && \
     libtiff-dev \
     libdc1394-22-dev \
     unzip \
-    wget && \
-    rm -rf /var/lib/apt/lists/*
+    wget \
+    ros-noetic-catkin \
+    ros-noetic-cv-bridge \
+    libyaml-cpp-dev \
+    ros-noetic-tf2* \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install GCC 8 if not already installed
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 90 && \
@@ -83,27 +92,58 @@ COPY /OpenFace /OpenFace
 # Create build directory for OpenFace and compile
 WORKDIR /OpenFace
 # Replace the necessary files
-COPY mods/FeatureExtraction.cpp exe/FeatureExtraction/FeatureExtraction.cpp
-COPY mods/SequenceCapture.cpp lib/local/Utilities/src/SequenceCapture.cpp
-COPY mods/SequenceCapture.h lib/local/Utilities/include/SequenceCapture.h
+
+## THIS IS DONE DIRECTLY IN THE HOST FOLDER ##
+# COPY mods/FeatureExtraction.cpp exe/FeatureExtraction/FeatureExtraction.cpp
+# COPY mods/SequenceCapture.cpp lib/local/Utilities/src/SequenceCapture.cpp
+# COPY mods/SequenceCapture.h lib/local/Utilities/include/SequenceCapture.h
 
 RUN mkdir build && \
     cd build && \
-    cmake -D CMAKE_CXX_COMPILER=g++-8 -D CMAKE_C_COMPILER=gcc-8 -D CMAKE_BUILD_TYPE=RELEASE .. && \
-    make
+    cmake \
+        -DCMAKE_CXX_COMPILER=g++-8 \
+        -DCMAKE_C_COMPILER=gcc-8 \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        .. && \
+    make -j$(nproc) && \
+    make install
+
+RUN chmod +x ./download_models.sh
+
+RUN ./download_models.sh
+
+WORKDIR /
+
+COPY /catkin_ws /catkin_ws
+
+WORKDIR /catkin_ws
+
+# Set Git access token as an environment variable
+ENV GIT_ACCESS_TOKEN
+RUN git clone https://${GIT_ACCESS_TOKEN}@github.com/vignif/grace_common_msgs.git /catkin_ws/src/grace_common_msgs
 
 
-# RUN mkdir build
+RUN /bin/bash -c "source /opt/ros/noetic/setup.bash"
 
-# # Build OpenFace
-# RUN cd build && cmake -D CMAKE_BUILD_TYPE=RELEASE .. && make
+RUN /bin/bash -c "pwd"
 
-# # Delete the processed folder
-# RUN rm -rf build/processed
+# RUN source /opt/ros/noetic/setup.bash
+# RUN catkin build
 
-# Run FeatureExtraction to preprocess data
-# CMD /bin/bash -c "./build/bin/FeatureExtraction -wild -device 0 -pose -gaze -2Dfp -3Dfp"
+COPY README.md /catkin_ws/
 
 
-CMD ["/bin/bash"]
-# In another terminal, run python predict.py to execute the prediction
+COPY entrypoint.sh /entrypoint.sh
+
+# Make the entrypoint script executable
+RUN chmod +x /entrypoint.sh
+
+RUN /entrypoint.sh
+
+CMD [ "/bin/bash" ]
+
+# Set the entrypoint to run the entrypoint script
+# ENTRYPOINT ["/entrypoint.sh"]
+
+
